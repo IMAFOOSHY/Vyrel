@@ -57,8 +57,6 @@ class Parser:
     def __init__(self, tokens: List[Token]) -> None:
         self.tokens = tokens
         self.pos = 0
-        # Tracks whether a block-form ``fn`` is currently allowed.  Reserved
-        # for future use; Phase 2 rejects block-form fn-as-value entirely.
         self._allow_block_fn = False
 
     # ------------------------------------------------------------------ #
@@ -68,7 +66,7 @@ class Parser:
     def _peek(self, offset: int = 0) -> Token:
         idx = self.pos + offset
         if idx >= len(self.tokens):
-            return self.tokens[-1]  # EOF
+            return self.tokens[-1]
         return self.tokens[idx]
 
     def _advance(self) -> Token:
@@ -138,7 +136,6 @@ class Parser:
             or self._check_kw("case")
 
     def _parse_block(self) -> Tuple[ast.Stmt, ...]:
-        """Parse statements until a block terminator (``end``/``elif``/...)."""
         stmts: List[ast.Stmt] = []
         self._skip_newlines()
         while not self._at_block_end():
@@ -200,10 +197,7 @@ class Parser:
                 return self._parse_import()
             if kw == "from":
                 return self._parse_from_import()
-            # Fall through to expression statement for keyword-led expression.
 
-        # Try simple/compound assignment: IDENT/Attr/Index followed by '=' or
-        # compound-assign.  Parse an expression then check the next token.
         expr = self._parse_expr()
         nxt = self._peek()
         if nxt.type in (
@@ -366,7 +360,6 @@ class Parser:
         )
 
     def _parse_pattern_literal(self) -> object:
-        """Match patterns are literal values only (int/float/str/bool/nil)."""
         tok = self._peek()
         if tok.type is TokenType.INT or tok.type is TokenType.FLOAT:
             self._advance()
@@ -618,11 +611,10 @@ class Parser:
         return self._parse_power()
 
     def _parse_power(self) -> ast.Expr:
-        # '**' is right-associative: a ** b ** c == a ** (b ** c).
         base = self._parse_postfix()
         if self._check(TokenType.DOUBLE_STAR):
             tok = self._advance()
-            exponent = self._parse_unary()  # right-assoc + allow -exp
+            exponent = self._parse_unary()
             return ast.BinaryOp(
                 op="**", left=base, right=exponent,
                 line=tok.line, column=tok.column,
@@ -692,7 +684,6 @@ class Parser:
     def _parse_primary(self) -> ast.Expr:
         tok = self._peek()
 
-        # Literals ---------------------------------------------------
         if tok.type is TokenType.INT:
             self._advance()
             return ast.IntLit(value=tok.value, line=tok.line, column=tok.column)
@@ -706,7 +697,6 @@ class Parser:
             self._advance()
             return self._build_template(tok)
 
-        # Keyword literals ------------------------------------------
         if _is_kw(tok, "true"):
             self._advance()
             return ast.BoolLit(value=True, line=tok.line, column=tok.column)
@@ -719,28 +709,26 @@ class Parser:
         if _is_kw(tok, "self"):
             self._advance()
             return ast.SelfExpr(line=tok.line, column=tok.column)
+        if _is_kw(tok, "super"):
+            self._advance()
+            return ast.Ident(name="super", line=tok.line, column=tok.column)
 
-        # Identifiers ------------------------------------------------
         if tok.type is TokenType.IDENT:
             self._advance()
             return ast.Ident(name=tok.value, line=tok.line, column=tok.column)
 
-        # Grouping ---------------------------------------------------
         if tok.type is TokenType.LPAREN:
             self._advance()
             inner = self._parse_expr()
             self._expect(TokenType.RPAREN, "')'")
             return inner
 
-        # List literal -----------------------------------------------
         if tok.type is TokenType.LBRACKET:
             return self._parse_list_literal()
 
-        # Dict literal -----------------------------------------------
         if tok.type is TokenType.LBRACE:
             return self._parse_dict_literal()
 
-        # Lambda (arrow form) ----------------------------------------
         if _is_kw(tok, "fn"):
             return self._parse_fn_expr()
 
@@ -750,7 +738,6 @@ class Parser:
         )
 
     def _build_template(self, tok: Token) -> ast.TemplateExpr:
-        """Convert a TEMPLATE token's InterpPart entries into Expr nodes."""
         parts: List[object] = []
         for item in tok.value:
             if isinstance(item, str):
@@ -767,7 +754,7 @@ class Parser:
                         line=item.line, column=item.column,
                     )
                 parts.append(expr)
-            else:  # pragma: no cover - defensive
+            else:
                 raise ParseError(
                     "internal: malformed template part",
                     line=tok.line, column=tok.column,
@@ -806,8 +793,6 @@ class Parser:
         return ast.DictLit(entries=tuple(entries), line=lb.line, column=lb.column)
 
     def _parse_fn_expr(self) -> ast.Expr:
-        """Parse ``fn(params) => expr``.  Block-form ``fn … end`` as a value
-        is not supported in Phase 2 (see DECISIONS.md)."""
         fn_tok = self._advance()
         params = self._parse_params()
 
