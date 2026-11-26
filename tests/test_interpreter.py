@@ -463,10 +463,14 @@ class TestImports(unittest.TestCase):
         src = "from math import sqrt\nsqrt(16)"
         self.assertAlmostEqual(eval_one(src), 4.0)
 
-    def test_import_gfx_errors(self) -> None:
+    def test_import_gfx_succeeds(self) -> None:
+        # Phase 4 implements `gfx`, so importing it must not raise.
+        run("import gfx\n")
+
+    def test_import_unknown_module_errors(self) -> None:
         with self.assertRaises(VyrelRuntimeError) as ctx:
-            run("import gfx")
-        self.assertIn("Phase 4", str(ctx.exception))
+            run("import nosuchmodule")
+        self.assertIn("unknown module", str(ctx.exception))
 
 
 class TestBuiltins(unittest.TestCase):

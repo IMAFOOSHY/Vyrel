@@ -2,9 +2,10 @@
 
 Evaluates a :class:`vyrel.ast_nodes.Program` against an
 :class:`Environment` (lexical scoping, closures, ``let``/``const``).
-Provides builtins, a small stdlib registry (only ``math`` for Phase 3),
-classes/instances with implicit ``self`` and ``super``, exceptions
-(``throw``/``try``/``catch``/``finally``), and a call-depth limit of 1000.
+Provides builtins, a small stdlib registry (``math`` and ``gfx`` for
+Phase 4), classes/instances with implicit ``self`` and ``super``,
+exceptions (``throw``/``try``/``catch``/``finally``), and a call-depth
+limit of 1000.
 
 Interpretation calls not pinned by the spec are documented in
 ``docs/DECISIONS.md``.
@@ -466,7 +467,7 @@ class Interpreter:
         if isinstance(stmt, ast.ImportStmt):
             if stmt.is_file:
                 raise VyrelRuntimeError(
-                    "importing .vyr files is not yet supported (Phase 4+)",
+                    "importing .vyr files is not yet supported",
                     line=stmt.line, column=stmt.column,
                 )
             mod = self._load_builtin_module(stmt.module, stmt.line, stmt.column)
@@ -477,7 +478,7 @@ class Interpreter:
         if isinstance(stmt, ast.FromImportStmt):
             if stmt.is_file:
                 raise VyrelRuntimeError(
-                    "importing .vyr files is not yet supported (Phase 4+)",
+                    "importing .vyr files is not yet supported",
                     line=stmt.line, column=stmt.column,
                 )
             mod = self._load_builtin_module(stmt.module, stmt.line, stmt.column)
@@ -838,7 +839,10 @@ class Interpreter:
             if i < len(args):
                 frame.define(p.name, args[i])
             elif p.default is not None:
-                frame.define(p.name, self._eval(p.default, frame.parent or self.globals))
+                frame.define(
+                    p.name,
+                    self._eval(p.default, frame.parent or self.globals),
+                )
             else:
                 raise VyrelRuntimeError(
                     f"function '{fn_name}' is missing argument '{p.name}'",
@@ -1003,12 +1007,23 @@ class Interpreter:
             line=line, column=column,
         )
 
+    # ------------------------------------------------------------------ #
+    # Stdlib registry (Phase 4 version)                                  #
+    # ------------------------------------------------------------------ #
+
     def _load_builtin_module(
         self, name: str, line: int, column: int,
     ) -> VyrelModule:
+        from . import stdlib as _stdlib
+        attrs = _stdlib.load_module(name)
+        if attrs is None:
+            raise VyrelRuntimeError(
+                f"unknown module '{name}'",
+                line=line, column=column,
+            )
         if name == "math":
             import math
-            attrs: Dict[str, Any] = {
+            attrs.update({
                 "pi": math.pi,
                 "e": math.e,
                 "sqrt": math.sqrt,
@@ -1022,14 +1037,5 @@ class Interpreter:
                 "min": min,
                 "max": max,
                 "round": round,
-            }
-            return VyrelModule("math", attrs)
-        if name == "gfx":
-            raise VyrelRuntimeError(
-                "'gfx' is not available until Phase 4 (graphics backend)",
-                line=line, column=column,
-            )
-        raise VyrelRuntimeError(
-            f"unknown module '{name}'",
-            line=line, column=column,
-        )
+            })
+        return VyrelModule(name, attrs)

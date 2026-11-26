@@ -107,3 +107,80 @@ subclasses of `VyrelError`.  Tests import from `vyrel.parser`.  A Phase 4
 cleanup can collapse them into one.
 
 **Status:** All awaiting project-owner confirmation.
+
+---
+
+## 2026-11-26 — `gfx` API surface (Phase 4)
+
+**Spec text:** shows `gfx.clear`, `gfx.line`, `gfx.present`, and pixel
+coordinates. Does not enumerate the full API.
+
+**Chosen API:**
+- `gfx.open(title, width, height)` — create the window (idempotent)
+- `gfx.clear(r, g, b)` — clear to a color
+- `gfx.pixel(x, y, r, g, b)` — set a pixel
+- `gfx.line(x1, y1, x2, y2, r, g, b)` — line segment
+- `gfx.rect(x, y, w, h, r, g, b, fill=True)` — rectangle
+- `gfx.text(x, y, text, r, g, b)` — text, top-left anchored
+- `gfx.present()` — flush + pump events (typically called once per frame)
+- `gfx.poll()` — pump events without drawing
+- `gfx.closed()` — whether the window was closed
+- `gfx.delay(ms)` — sleep while pumping events (frame pacing)
+- `gfx.width()` / `gfx.height()` — window size
+
+**Coordinates:** 1-based pixel coordinates, origin top-left.
+**Colors:** 3-tuples `(r, g, b)` each `0..255`; clamped by the backend.
+
+**Status:** Awaiting confirmation; expandable in a later phase.
+
+---
+
+## 2026-11-26 — The `gfx` loop is driven by user code (Phase 4)
+
+Tkinter owns the event loop when a window is open. Therefore the interpreter
+does **not** call `mainloop()`. Instead:
+
+* `gfx.present()` schedules `update_idletasks()` + `update()`, so drawing
+  appears immediately.
+* `gfx.poll()` / `gfx.delay(ms)` pump events.
+* User programs use `while true do … gfx.present() … end` (as in the
+  spec's spinning-cube example) to drive the loop.
+
+`gfx.closed()` is expected to be checked by the user to break out when the
+window is closed; the interpreter does not forcibly abort the program.
+
+**Status:** Awaiting confirmation.
+
+---
+
+## 2026-11-26 — tkinter imports are lazy (Phase 4)
+
+`vyrel/gfx/tk_backend.py` imports `tkinter` **inside methods**, never at
+module import time. This is required by the spec and lets the full test
+suite run with **no display** (the tests install a headless stub backend).
+It also means `import vyrel.gfx` works on machines without tkinter.
+
+**Status:** Per spec.
+
+---
+
+## 2026-11-26 — REPL evaluation model (Phase 4)
+
+The REPL keeps a single :class:`Interpreter` across lines (so `let x = 1`
+persists). Each line is lexed/parsed as one program. Statements run in
+order; if the last statement is an expression statement, its value is
+printed. Multi-line blocks must be entered on one line in Phase 4 (a
+multi-line mode can be added later).
+
+**Status:** Awaiting confirmation.
+
+---
+
+## 2026-11-26 — CLI error reporting (Phase 4)
+
+Any `VyrelError` (Lex, Parse, Runtime) is rendered with the source line and
+a caret via :func:`vyrel.errors.format_error`, printed to **stderr**, and
+causes exit code **1**. File-not-found and usage errors also return 1 / 2
+respectively. Successful runs return 0.
+
+**Status:** Standard Unix convention; documented for clarity.
