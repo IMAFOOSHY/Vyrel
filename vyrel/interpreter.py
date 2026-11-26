@@ -2,10 +2,10 @@
 
 Evaluates a :class:`vyrel.ast_nodes.Program` against an
 :class:`Environment` (lexical scoping, closures, ``let``/``const``).
-Provides builtins, a small stdlib registry (``math`` and ``gfx`` for
-Phase 4), classes/instances with implicit ``self`` and ``super``,
-exceptions (``throw``/``try``/``catch``/``finally``), and a call-depth
-limit of 1000.
+Provides builtins, a stdlib registry (core/collections/strings/files/math/gfx
+in Phase 5 batch A), classes/instances with implicit ``self`` and ``super``,
+exceptions (``throw``/``try``/``catch``/``finally``), and a call-depth limit
+of 1000.
 
 Interpretation calls not pinned by the spec are documented in
 ``docs/DECISIONS.md``.
@@ -761,7 +761,22 @@ class Interpreter:
         if isinstance(func, VyrelClass):
             return self._instantiate(func, args, line, column)
         if callable(func):
-            return func(*args)
+            try:
+                return func(*args)
+            except VyrelRuntimeError:
+                raise
+            except Exception as exc:
+                # Stdlib functions raise StdlibError; convert to a Vyrel
+                # runtime error carrying the call site's position.
+                try:
+                    from .stdlib._util import StdlibError
+                except Exception:
+                    StdlibError = ()  # type: ignore
+                if isinstance(exc, StdlibError):
+                    raise VyrelRuntimeError(
+                        str(exc), line=line, column=column,
+                    ) from None
+                raise
         raise VyrelRuntimeError(
             f"{_type_name(func)} is not callable",
             line=line, column=column,
@@ -1008,34 +1023,21 @@ class Interpreter:
         )
 
     # ------------------------------------------------------------------ #
-    # Stdlib registry (Phase 4 version)                                  #
+    # Stdlib registry                                                    #
     # ------------------------------------------------------------------ #
 
     def _load_builtin_module(
         self, name: str, line: int, column: int,
     ) -> VyrelModule:
         from . import stdlib as _stdlib
-        attrs = _stdlib.load_module(name)
+
+        def _call_fn(fn_value: Any, args: list) -> Any:
+            return self._call_value(fn_value, args, line, column)
+
+        attrs = _stdlib.load_module(name, call_fn=_call_fn)
         if attrs is None:
             raise VyrelRuntimeError(
                 f"unknown module '{name}'",
                 line=line, column=column,
             )
-        if name == "math":
-            import math
-            attrs.update({
-                "pi": math.pi,
-                "e": math.e,
-                "sqrt": math.sqrt,
-                "cos": math.cos,
-                "sin": math.sin,
-                "tan": math.tan,
-                "floor": lambda x: int(math.floor(x)),
-                "ceil": lambda x: int(math.ceil(x)),
-                "abs": abs,
-                "pow": math.pow,
-                "min": min,
-                "max": max,
-                "round": round,
-            })
         return VyrelModule(name, attrs)
