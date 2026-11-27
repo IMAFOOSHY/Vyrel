@@ -184,3 +184,27 @@ causes exit code **1**. File-not-found and usage errors also return 1 / 2
 respectively. Successful runs return 0.
 
 **Status:** Standard Unix convention; documented for clarity.
+
+---
+
+## 2026-11-26 — `vyrel-fs` fork planned (Phase 13+)
+
+After Phase 10 completes the beginner version, a fork named **`vyrel-fs`**
+("Vyrel Fast & Strong") will be created as a sibling package `vyrel_fs/`.
+The beginner version (`vyrel/`) remains pure Python, stdlib only, and
+Crostini-compatible forever. `vyrel-fs`:
+
+* Shares lexer/parser/ast_nodes/stdlib with `vyrel/` where identical.
+* Adds a bytecode VM (`compiler.py` + `vm.py`) for 3–10x speed.
+* Adds diverse stdlib (os, re, async, subprocess, threads).
+* Adds a native C renderer (`_native/renderer.c`) — no pure-Python fallback
+  required, because Crostini compatibility is explicitly waived for the fork.
+* Adds language extensions (comprehensions, ternaries, optional types).
+* Ships as `python3 -m vyrel_fs` alongside `python3 -m vyrel`.
+
+Compatibility contract: any `.vyr` program in the *shared subset* runs
+identically under both interpreters, verified by `tests/test_compatibility.py`.
+Divergence (extra features) is one-way: beginner programs run on the fork,
+but fork programs that use extensions may not run on the beginner version.
+
+**Status:** Confirmed by project owner. To be built after Phase 10.

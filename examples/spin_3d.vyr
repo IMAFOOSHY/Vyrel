@@ -1,0 +1,62 @@
+# Fake-3D spinning cube, done in pure Vyrel math and drawn with 2D lines.
+# This is what the real 3D renderer (Phase 9) will do internally.
+# Run with:  python3 -m vyrel examples/spin_3d.vyr
+# Close the window to exit.
+
+import gfx
+import math
+
+gfx.open("vyrel — spinning cube", 480, 360)
+
+# 8 cube vertices, centered at origin, edge length 2
+let verts = [
+  [-1, -1, -1], [ 1, -1, -1], [ 1,  1, -1], [-1,  1, -1],
+  [-1, -1,  1], [ 1, -1,  1], [ 1,  1,  1], [-1,  1,  1]
+]
+
+# 12 edges, as pairs of vertex indices
+let edges = [
+  [0,1], [1,2], [2,3], [3,0],
+  [4,5], [5,6], [6,7], [7,4],
+  [0,4], [1,5], [2,6], [3,7]
+]
+
+let angle = 0.0
+
+while not gfx.closed() do
+  gfx.clear(10, 10, 20)
+
+  # Pre-compute cos/sin of the current rotation
+  let ca = math.cos(angle)
+  let sa = math.sin(angle)
+
+  # Project every vertex to 2D
+  let projected = []
+  let i = 0
+  while i < 8 do
+    let v = verts[i]
+    # Rotate around Y axis
+    let xr = v[0] * ca - v[2] * sa
+    let zr = v[0] * sa + v[2] * ca
+    let y = v[1]
+    # Simple perspective projection
+    let f = 4.0 / (4.0 + zr)
+    let sx = 240 + xr * 100 * f
+    let sy = 180 + y * 100 * f
+    projected.push([sx, sy])
+    i = i + 1
+  end
+
+  # Draw every edge
+  let e = 0
+  while e < 12 do
+    let a = projected[edges[e][0]]
+    let b = projected[edges[e][1]]
+    gfx.line(a[0], a[1], b[0], b[1], 0, 220, 255)
+    e = e + 1
+  end
+
+  gfx.present()
+  gfx.delay(16)
+  angle = angle + 0.03
+end

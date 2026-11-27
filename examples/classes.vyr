@@ -1,0 +1,44 @@
+# Classes, methods, inheritance, super.
+# Run with:  python3 -m vyrel examples/classes.vyr
+
+class Animal
+  fn init(name)
+    self.name = name
+  end
+
+  fn speak()
+    return "..."
+  end
+
+  fn describe()
+    return "{self.name} says {self.speak()}"
+  end
+end
+
+class Dog extends Animal
+  fn speak()
+    return "Woof"
+  end
+end
+
+class Cat extends Animal
+  fn speak()
+    return "Meow"
+  end
+end
+
+class Puppy extends Dog
+  fn speak()
+    return super.speak() + " (small)"
+  end
+end
+
+let a = Animal("Generic")
+let d = Dog("Rex")
+let c = Cat("Whiskers")
+let p = Puppy("Tiny")
+
+print(a.describe())
+print(d.describe())
+print(c.describe())
+print(p.describe())

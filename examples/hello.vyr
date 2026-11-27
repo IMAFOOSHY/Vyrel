@@ -1,0 +1,16 @@
+
+# Hello world in Vyrel.
+# Run with:  python3 -m vyrel examples/hello.vyr
+
+print("Hello, world!")
+print("Vyrel is running.")
+
+let name = "friend"
+print("Hello, {name}!")
+
+let nums = [1, 2, 3, 4, 5]
+let total = 0
+for n in nums do
+  total = total + n
+end
+print("1 + 2 + 3 + 4 + 5 = {total}")

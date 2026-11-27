@@ -1,0 +1,13 @@
+# Working with JSON.
+# Run with:  python3 -m vyrel examples/json_demo.vyr
+
+import json
+
+let user = {name: "Ada", age: 36, tags: ["math", "code"]}
+let text = json.encode(user, true)
+print(text)
+
+let back = json.decode(text)
+print("name = {back.name}")
+print("age = {back.age}")
+print("first tag = {back.tags[0]}")

@@ -4,6 +4,13 @@ All Vyrel errors derive from :class:`VyrelError`.  Each error carries an
 optional 1-based ``line`` (and ``column`` where available) so the CLI and REPL
 can print precise diagnostics.  Messages are phrased in plain English because
 the language targets beginners.
+
+Two formatting helpers:
+
+* :func:`format_error` renders the offending source line with a caret.
+* :func:`format_error_with_snippet` renders *two lines before and after* the
+  error for more context.  Used by the CLI for file runs; the REPL uses the
+  simpler one because its input is often one line.
 """
 
 from __future__ import annotations
@@ -54,23 +61,48 @@ class VyrelRuntimeError(VyrelError):
     kind = "Error"
 
 
-def format_error(err: VyrelError, source: str) -> str:
-    """Render ``err`` with the source line and a caret at the error column."""
-    header = err._render_plain()
-    if err.line is None:
+def _render_snippet(
+    header: str,
+    source: str,
+    line: Optional[int],
+    column: Optional[int],
+    *,
+    context: int,
+) -> str:
+    """Render ``header`` with ``context`` lines of source around ``line``."""
+    if line is None:
         return header
 
     lines = source.splitlines()
-    if err.line < 1 or err.line > len(lines):
+    if line < 1 or line > len(lines):
         return header
 
-    line_text = lines[err.line - 1]
-    gutter_width = len(str(err.line))
-    gutter = " " * gutter_width
-    out = [header, f"  {err.line:>{gutter_width}} | {line_text}"]
+    start = max(1, line - context)
+    end = min(len(lines), line + context)
+    gutter_width = len(str(end))
 
-    if err.column is not None and err.column >= 1:
-        caret_col = min(err.column, len(line_text) + 1)
-        out.append(f"  {gutter} | {' ' * (caret_col - 1)}^")
-
+    out = [header]
+    for ln in range(start, end + 1):
+        text = lines[ln - 1]
+        marker = ">" if ln == line else " "
+        out.append(f"  {marker} {ln:>{gutter_width}} | {text}")
+        if ln == line and column is not None and column >= 1:
+            caret_col = min(column, len(text) + 1)
+            out.append(
+                f"    {' ' * gutter_width} | {' ' * (caret_col - 1)}^"
+            )
     return "\n".join(out)
+
+
+def format_error(err: VyrelError, source: str) -> str:
+    """Render ``err`` with one line of source and a caret."""
+    return _render_snippet(
+        err._render_plain(), source, err.line, err.column, context=0,
+    )
+
+
+def format_error_with_snippet(err: VyrelError, source: str) -> str:
+    """Render ``err`` with two lines of source context before and after."""
+    return _render_snippet(
+        err._render_plain(), source, err.line, err.column, context=2,
+    )

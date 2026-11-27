@@ -1,0 +1,35 @@
+# Spinning hexagon — 2D graphics demo.
+# Requires: tkinter (python3 and the `tk` package on Arch-based systems).
+# Run with:  python3 -m vyrel examples/spinning_hexagon.vyr
+# Close the window to exit.
+
+import gfx
+import math
+
+gfx.open("vyrel — spinning hexagon", 400, 400)
+
+let cx = 200
+let cy = 200
+let radius = 140
+let angle = 0.0
+
+while not gfx.closed() do
+  gfx.clear(15, 15, 25)
+
+  let n = 0
+  while n < 6 do
+    let a1 = angle + n * 1.0472
+    let a2 = angle + (n + 1) * 1.0472
+    let x1 = cx + math.cos(a1) * radius
+    let y1 = cy + math.sin(a1) * radius
+    let x2 = cx + math.cos(a2) * radius
+    let y2 = cy + math.sin(a2) * radius
+    gfx.line(x1, y1, x2, y2, 100, 220, 255)
+    gfx.pixel(x1, y1, 255, 255, 255)
+    n = n + 1
+  end
+
+  gfx.present()
+  gfx.delay(16)
+  angle = angle + 0.02
+end
